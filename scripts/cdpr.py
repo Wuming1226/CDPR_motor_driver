@@ -88,6 +88,5 @@ if __name__ == "__main__":
 
         if cdpr.exceed_cnt >= cdpr.exceed_tol:  # 连续接收最大速度指令，则判断为发生错误，停机
             print('Over speed')
-            exit()
 
         rate.sleep()
