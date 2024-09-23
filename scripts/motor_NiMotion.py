@@ -4,7 +4,7 @@ import rospy
 import os
 import can
 import time
-from transform import relist, decode
+from calculation_nimotion import relist, decode
 import numpy as np
 
 class Motor:
