@@ -33,7 +33,6 @@ class Motor:
         msg = can.Message(arbitration_id=msg_id, data=msg_data, is_extended_id=True)
         self._can_bus.send(msg)
 
-
     """
     电机停止运行（通信类型4）
     """
@@ -46,7 +45,6 @@ class Motor:
         # 生成数据帧并发送
         msg = can.Message(arbitration_id=msg_id, data=msg_data, is_extended_id=True)
         self._can_bus.send(msg)
-
 
     """
     设置运行模式（通信类型18）
@@ -67,7 +65,6 @@ class Motor:
             return True
         else:
             return False
-
 
     """
     设置运控模式参数（通信类型1)
@@ -94,9 +91,9 @@ class Motor:
         # 扩展帧id
         msg_id = (1 << 24) + (torque << 8) + self._can_id
         # 数据（大端uint16）
-        msg_data = [position >> 8, position - ((position >> 8) << 8), \
-                velocity >> 8, velocity - ((velocity >> 8) << 8), \
-                Kp >> 8, Kp - ((Kp >> 8) << 8), \
+        msg_data = [position >> 8, position - ((position >> 8) << 8),
+                velocity >> 8, velocity - ((velocity >> 8) << 8),
+                Kp >> 8, Kp - ((Kp >> 8) << 8),
                 Kd >> 8, Kd - ((Kd >> 8) << 8)]
 
         # 生成数据帧并发送
@@ -105,7 +102,6 @@ class Motor:
 
         # 反馈检测
         return self.get_response_msg()
-
 
     """
     设置目标速度（速度模式）（通信类型18）
@@ -123,7 +119,7 @@ class Motor:
         # 数据（小端float）
         data_byte = struct.pack('<f', target_velocity)                      # 打包成小端字节流
         data_hex = hex(int.from_bytes(data_byte, 'big'))[2:].zfill(8)          # 将字节流转为小端十六进制（32bit，8位十六进制）
-        msg_data = [0x0A, 0x70, 0x00, 0x00, \
+        msg_data = [0x0A, 0x70, 0x00, 0x00,
                 int(data_hex[0:2], 16), int(data_hex[2:4], 16), int(data_hex[4:6], 16), int(data_hex[6:8], 16)]
 
         # 生成数据帧并发送
@@ -133,7 +129,6 @@ class Motor:
         # 反馈检测
         return self.get_response_msg()
 
-
     """
     接收反馈消息（通信类型2）
     """
@@ -141,12 +136,13 @@ class Motor:
         # 接收消息，验证消息类型
         time_out = 1
         rcv_start_time = time.time()
+        msg = self._can_bus.recv(0.1)
         while time.time() - rcv_start_time < time_out:
-            msg = self._can_bus.recv(0.1)
-            if msg != None:
+            if msg is not None:
                 if (msg.arbitration_id >> 24) == 2:
                     break
-        if msg == None:
+            msg = self._can_bus.recv(0.1)
+        if msg is None:
             print('No response!')
             return False       
 
@@ -172,13 +168,12 @@ class Motor:
 
         # 打印状态
         if error_flag == 0:
-            #print('Motor_id: {}  No error.  Mode: {}'.format(motor_id, mode))
-            #print('Pos: {}  Vel: {}  Toq: {}'.format(position, velocity, torque))
+            # print('Motor_id: {}  No error.  Mode: {}'.format(motor_id, mode))
+            # print('Pos: {}  Vel: {}  Toq: {}'.format(position, velocity, torque))
             return status
         else:
             print('Motor_id: {}  Error!'.format(motor_id))
             return False
-
     
     """
     读取电机参数（通信类型17）
@@ -196,12 +191,13 @@ class Motor:
         # 接收消息，验证消息类型
         time_out = 0.5
         rcv_start_time = time.time()
+        msg = self._can_bus.recv(0.1)
         while time.time() - rcv_start_time < time_out:
-            msg = self._can_bus.recv(0.1)
-            if msg != None:
+            if msg is not None:
                 if (msg.arbitration_id >> 24) == 17:
                     break
-        if msg == None:
+            msg = self._can_bus.recv(0.1)
+        if msg is None:
             print('No response!')
             return False
 
@@ -215,8 +211,7 @@ class Motor:
             data_int = data_int >> 32                           # 取出数据（msg.data的Byte4~7）
             data_byte = data_int.to_bytes(4, 'big')             # 重新打包成大端字节流
             return struct.unpack('>f', data_byte)[0]            # 将大端字节流转为浮点型
-        
-    
+
     """
     设置电机机械零位（通信类型6）
     """
@@ -233,19 +228,18 @@ class Motor:
         # 反馈检测
         return self.get_response_msg()
         
-        
-        
-    
+
 if __name__ == '__main__':
     os.system('sudo ip link set can0 type can bitrate 1000000')     # 电机CAN通信波特率100M
     os.system('sudo ifconfig can0 up')
-    
+
+    # test
     motor = Motor(111, 2)
     motor.set_run_mode(2)
     motor.enable()
     start = time.time()
-    while time.time() - start < 5:
-        status = motor.set_velocity(-3)
+    while time.time() - start < 1:
+        status = motor.set_velocity(-0.2)
         position = status['position']
         
         # 下面这一堆封装到cdpr
@@ -267,7 +261,7 @@ if __name__ == '__main__':
         time.sleep(0.01)
         
     start = time.time()
-    while time.time() - start < 5:
+    while time.time() - start < 0:
         status = motor.set_velocity(3)
         position = status['position']
         
