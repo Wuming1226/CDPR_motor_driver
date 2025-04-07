@@ -35,6 +35,7 @@ class Motor:
 
     """
     电机停止运行（通信类型4）
+    注意：此电机无刹车，停止运行后无转矩输出，若有负载则无法保持位置！
     """
     def stop(self):
         # 扩展帧id
@@ -227,6 +228,30 @@ class Motor:
         
         # 反馈检测
         return self.get_response_msg()
+
+    """
+    设置最大电流（通信类型18）
+    PMSM 转矩与iq成正比，经测试电流与转矩的数值之比约为 1.67:1
+    """
+    def set_max_cur(self, max_cur):
+        # 扩展帧id
+        msg_id = (18 << 24) + (self._master_id << 8) + self._can_id
+        # 数据
+        data_byte = struct.pack('<f', max_cur)  # 打包成小端字节流
+        data_hex = hex(int.from_bytes(data_byte, 'big'))[2:].zfill(8)  # 将字节流转为小端十六进制（32bit，8位十六进制）
+        msg_data = [0x18, 0x70, 0x00, 0x00,
+                    int(data_hex[0:2], 16), int(data_hex[2:4], 16), int(data_hex[4:6], 16), int(data_hex[6:8], 16)]
+
+        # 生成数据帧并发送
+        msg = can.Message(arbitration_id=msg_id, data=msg_data, is_extended_id=True)
+        self._can_bus.send(msg)
+
+        # 反馈检测
+        if self.get_response_msg():
+            self._run_mode = run_mode
+            return True
+        else:
+            return False
         
 
 if __name__ == '__main__':

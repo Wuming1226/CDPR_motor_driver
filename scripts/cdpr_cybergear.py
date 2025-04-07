@@ -5,7 +5,7 @@ import rospy
 import time
 import numpy as np
 
-from motor import Motor
+from motor_cybergear import Motor
 
 from std_msgs.msg import Float32MultiArray
 
@@ -22,6 +22,7 @@ class CDPR:
         self.motor1 = Motor(master_id, motor1_id)
         if self.motor1.set_run_mode(2):     # 设置为速度模式
             self.motor1.enable()
+            self.motor1.set_max_cur(10)
         else:
             print('motor1 setting failed')
             exit()
@@ -29,6 +30,7 @@ class CDPR:
         self.motor2 = Motor(master_id, motor2_id)
         if self.motor2.set_run_mode(2):     # 设置为速度模式
             self.motor2.enable()
+            self.motor2.set_max_cur(10)
         else:
             print('motor2 setting failed')
             exit()
@@ -36,6 +38,7 @@ class CDPR:
         self.motor3 = Motor(master_id, motor3_id)
         if self.motor3.set_run_mode(2):     # 设置为速度模式
             self.motor3.enable()
+            self.motor3.set_max_cur(10)
         else:
             print('motor3 setting failed')
             exit()
@@ -43,6 +46,7 @@ class CDPR:
         self.motor4 = Motor(master_id, motor4_id)
         if self.motor4.set_run_mode(2):     # 设置为速度模式
             self.motor4.enable()
+            self.motor4.set_max_cur(10)
         else:
             print('motor4 setting failed')
             exit()
@@ -58,7 +62,7 @@ class CDPR:
         # safety
         self.max_interval = 0.5
         self.last_velo_cb_time = time.time()
-        self.max_velo = 1
+        self.max_velo = 2
         self.exceed_cnt = 0
         self.exceed_tol = 10
 
@@ -75,10 +79,10 @@ class CDPR:
             self.exceed_cnt = 0 if self.exceed_cnt < 0 else self.exceed_cnt
             
         if self.exceed_cnt > self.exceed_tol:
-            status1 = self.stop()
-            status2 = self.stop()
-            status3 = self.stop()
-            status4 = self.stop()
+            status1 = self.motor1.set_velocity(0)
+            status2 = self.motor2.set_velocity(0)
+            status3 = self.motor3.set_velocity(0)
+            status4 = self.motor4.set_velocity(0)
         else:
             self.motor1.enable()
             status1 = self.motor1.set_velocity(msg.data[0])
@@ -92,6 +96,7 @@ class CDPR:
         positions = np.array([status1['position'], status2['position'], status3["position"], status4['position']])
         self.calculate_motor_position(positions)
 
+    ### 可能有问题，之后有需要换成直接读取磁编码器的值
     def calculate_motor_position(self, positions):
         for index in range(4):
             if positions[index] >= 4*np.pi:     # 若达到正位置最大值
@@ -125,10 +130,10 @@ if __name__ == "__main__":
     while not rospy.is_shutdown():
 
         if time.time() - cdpr.last_velo_cb_time > cdpr.max_interval:  # 规定时间间隔内没接收到速度指令则停机
-            cdpr.motor1.stop()
-            cdpr.motor2.stop()
-            cdpr.motor3.stop()
-            cdpr.motor4.stop()
+            cdpr.motor1.set_velocity(0)
+            cdpr.motor2.set_velocity(0)
+            cdpr.motor3.set_velocity(0)
+            cdpr.motor4.set_velocity(0)
             print('No signal')
 
         if cdpr.exceed_cnt >= cdpr.exceed_tol:  # 连续接收最大速度指令，则判断为发生错误，停机
