@@ -49,6 +49,7 @@ class Motor:
 
     """
     设置运行模式（通信类型18）
+    0：运控模式  1：位置模式  2：速度模式  3：电流模式
     """
     def set_run_mode(self, run_mode):
         # 扩展帧id
@@ -69,7 +70,7 @@ class Motor:
 
     """
     设置运控模式参数（通信类型1)
-      output_torqur = torque + Kp * position_err + Kd * velocity_err
+      output_torque = torque + Kp * position_err + Kd * velocity_err
     """
     def motion_control(self, torque, position, velocity, Kp, Kd):
         # 判断是否在运控模式
@@ -93,9 +94,33 @@ class Motor:
         msg_id = (1 << 24) + (torque << 8) + self._can_id
         # 数据（大端uint16）
         msg_data = [position >> 8, position - ((position >> 8) << 8),
-                velocity >> 8, velocity - ((velocity >> 8) << 8),
-                Kp >> 8, Kp - ((Kp >> 8) << 8),
-                Kd >> 8, Kd - ((Kd >> 8) << 8)]
+                    velocity >> 8, velocity - ((velocity >> 8) << 8),
+                    Kp >> 8, Kp - ((Kp >> 8) << 8),
+                    Kd >> 8, Kd - ((Kd >> 8) << 8)]
+
+        # 生成数据帧并发送
+        msg = can.Message(arbitration_id=msg_id, data=msg_data, is_extended_id=True)
+        self._can_bus.send(msg)
+
+        # 反馈检测
+        return self.get_response_msg()
+
+    """
+    设置目标位置（位置模式）（通信类型18）
+    """
+    def set_position(self, target_position):
+        # 判断是否在速度模式
+        if self._run_mode != 1:
+            print('Not in position mode!')
+            return False
+
+        # 扩展帧id
+        msg_id = (18 << 24) + (self._master_id << 8) + self._can_id
+        # 数据（小端float）
+        data_byte = struct.pack('<f', target_velocity)  # 打包成小端字节流
+        data_hex = hex(int.from_bytes(data_byte, 'big'))[2:].zfill(8)  # 将字节流转为小端十六进制（32bit，8位十六进制）
+        msg_data = [0x16, 0x70, 0x00, 0x00,
+                    int(data_hex[0:2], 16), int(data_hex[2:4], 16), int(data_hex[4:6], 16), int(data_hex[6:8], 16)]
 
         # 生成数据帧并发送
         msg = can.Message(arbitration_id=msg_id, data=msg_data, is_extended_id=True)
@@ -203,7 +228,7 @@ class Motor:
             return False
 
         # 数据信息
-        if param_index == 0x05:
+        if param_index == 0x05:     # 整数型值（如温度）
             data_int = int.from_bytes(msg.data, 'little')       # 将小端字节流转为整型
             data_int = data_int >> 32                           # 取出数据（msg.data的Byte4）
             return data_int - ((data_int >> 8) << 8)
@@ -247,11 +272,13 @@ class Motor:
         self._can_bus.send(msg)
 
         # 反馈检测
-        if self.get_response_msg():
-            self._run_mode = run_mode
-            return True
-        else:
-            return False
+        return self.get_response_msg()
+
+    """
+    获取电机计圈机械位置（通信类型17）
+    """
+    def get_position(self):
+        return self.get_param(0x15)
         
 
 if __name__ == '__main__':
@@ -267,21 +294,21 @@ if __name__ == '__main__':
         status = motor.set_velocity(-0.2)
         position = status['position']
         
-        # 下面这一堆封装到cdpr
-        if position >= 4*np.pi:
-            motor.set_zero_pos()
-            motor._overflow_cnt += 1
-            position = 0
-        elif position <= -4*np.pi:
-            motor.set_zero_pos()
-            motor._overflow_cnt -= 1
-            position = 0
-        elif np.abs(position) < 0.001 and motor._overflow_cnt != 0: 
-            motor._overflow_cnt -= np.sign(motor._overflow_cnt)
-            position = 4*np.pi * np.sign(motor._overflow_cnt)
-
-        position = position + 4*np.pi * motor._overflow_cnt
-        print(position)
+        # # 下面这一堆封装到cdpr
+        # if position >= 4*np.pi:
+        #     motor.set_zero_pos()
+        #     motor._overflow_cnt += 1
+        #     position = 0
+        # elif position <= -4*np.pi:
+        #     motor.set_zero_pos()
+        #     motor._overflow_cnt -= 1
+        #     position = 0
+        # elif np.abs(position) < 0.001 and motor._overflow_cnt != 0:
+        #     motor._overflow_cnt -= np.sign(motor._overflow_cnt)
+        #     position = 4*np.pi * np.sign(motor._overflow_cnt)
+        #
+        # position = position + 4*np.pi * motor._overflow_cnt
+        # print(position)
 
         time.sleep(0.01)
         
@@ -290,21 +317,21 @@ if __name__ == '__main__':
         status = motor.set_velocity(3)
         position = status['position']
         
-        # 下面这一堆封装到cdpr
-        if position >= 4*np.pi:
-            motor.set_zero_pos()
-            motor._overflow_cnt += 1
-            position = 0
-        elif position <= -4*np.pi:
-            motor.set_zero_pos()
-            motor._overflow_cnt -= 1
-            position = 0
-        elif np.abs(position) < 0.001 and motor._overflow_cnt != 0: 
-            motor._overflow_cnt -= np.sign(motor._overflow_cnt)
-            position = 4*np.pi * np.sign(motor._overflow_cnt)
-
-        position = position + 4*np.pi * motor._overflow_cnt
-        print(position)
+        # # 下面这一堆封装到cdpr
+        # if position >= 4*np.pi:
+        #     motor.set_zero_pos()
+        #     motor._overflow_cnt += 1
+        #     position = 0
+        # elif position <= -4*np.pi:
+        #     motor.set_zero_pos()
+        #     motor._overflow_cnt -= 1
+        #     position = 0
+        # elif np.abs(position) < 0.001 and motor._overflow_cnt != 0:
+        #     motor._overflow_cnt -= np.sign(motor._overflow_cnt)
+        #     position = 4*np.pi * np.sign(motor._overflow_cnt)
+        #
+        # position = position + 4*np.pi * motor._overflow_cnt
+        # print(position)
 
         time.sleep(0.01)
     motor.stop()
