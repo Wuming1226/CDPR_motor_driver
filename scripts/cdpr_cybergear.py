@@ -20,33 +20,37 @@ class CDPR:
 
         # initialize motors
         self.motor1 = Motor(master_id, motor1_id)
-        if self.motor1.set_run_mode(1):     # 设置为位置模式，进入位置模式时，电机自动将当前位置设为目标位置
-            self.motor1.enable()
+        if self.motor1.set_run_mode(1):     # 设置为位置模式
             self.motor1.set_max_cur(10)     # 设置最大电流限制输出转矩
+            self.motor1.set_position(0)     # 电机初始化时将当前位置设为零位，故初始目标位置为 0
+            self.motor1.enable()
         else:
             print('motor1 setting failed')
             exit()
 
         self.motor2 = Motor(master_id, motor2_id)
-        if self.motor2.set_run_mode(1):     # 设置为位置模式
-            self.motor2.enable()
+        if self.motor2.set_run_mode(1):
             self.motor2.set_max_cur(10)
+            self.motor2.set_position(0)
+            self.motor2.enable()
         else:
             print('motor2 setting failed')
             exit()
 
         self.motor3 = Motor(master_id, motor3_id)
-        if self.motor3.set_run_mode(1):     # 设置为位置模式
-            self.motor3.enable()
+        if self.motor3.set_run_mode(1):
             self.motor3.set_max_cur(10)
+            self.motor3.set_position(0)
+            self.motor3.enable()
         else:
             print('motor3 setting failed')
             exit()
 
         self.motor4 = Motor(master_id, motor4_id)
-        if self.motor4.set_run_mode(1):     # 设置为位置模式
-            self.motor4.enable()
+        if self.motor4.set_run_mode(1):
             self.motor4.set_max_cur(10)
+            self.motor4.set_position(0)
+            self.motor4.enable()
         else:
             print('motor4 setting failed')
             exit()
@@ -66,6 +70,10 @@ class CDPR:
         self.exceed_cnt = 0
         self.exceed_tol = 10
 
+        # 全程使用位置控制时的参数
+        self.pos_ref = np.array([0, 0, 0, 0])       # 参考位置，用于将速度指令转换为位置指令
+        self.control_rate = 20
+
     def velo_callback(self, msg):
         self.last_velo_cb_time = time.time()
         print(msg.data[0], msg.data[1], msg.data[2], msg.data[3])
@@ -79,28 +87,22 @@ class CDPR:
             self.exceed_cnt = 0 if self.exceed_cnt < 0 else self.exceed_cnt
             
         if self.exceed_cnt > self.exceed_tol:
-            status1 = self.motor1.set_run_mode(1)
-            status2 = self.motor2.set_run_mode(1)
-            status3 = self.motor3.set_run_mode(1)
-            status4 = self.motor4.set_run_mode(1)
+            cdpr.motor1.set_run_mode(cdpr.motor1.get_position())  # 锁定电机在当前位置
+            cdpr.motor2.set_run_mode(cdpr.motor2.get_position())
+            cdpr.motor3.set_run_mode(cdpr.motor3.get_position())
+            cdpr.motor4.set_run_mode(cdpr.motor4.get_position())
         else:
-            ### 速度控制似乎有问题，因为无法保证平衡位置，可以考虑更换为全程位置控制
-            self.motor1.set_run_mode(2)
-            self.motor1.enable()
-            status1 = self.motor1.set_velocity(msg.data[0])
-            self.motor2.set_run_mode(2)
-            self.motor2.enable()
-            status2 = self.motor2.set_velocity(msg.data[1])
-            self.motor3.set_run_mode(2)
-            self.motor3.enable()
-            status3 = self.motor3.set_velocity(msg.data[2])
-            self.motor4.set_run_mode(2)
-            self.motor4.enable()
-            status4 = self.motor4.set_velocity(msg.data[3])
+            # 根据速度指令更新参考位置
+            self.pos_ref = self.pos_ref + msg.data / self.control_rate
+            status1 = self.motor1.set_position(self.pos_ref[0])
+            status2 = self.motor2.set_position(self.pos_ref[1])
+            status3 = self.motor3.set_velocity(self.pos_ref[2])
+            status4 = self.motor4.set_velocity(self.pos_ref[3])
 
         # positions = np.array([status1['position'], status2['position'], status3["position"], status4['position']])
         # self.calculate_motor_position(positions)
 
+    # 更新固件后可以直接读取计圈位置，此方法弃用
     # def calculate_motor_position(self, positions):
     #     for index in range(4):
     #         if positions[index] >= 4*np.pi:     # 若达到正位置最大值
@@ -129,29 +131,29 @@ if __name__ == "__main__":
 
     cdpr = CDPR(master_id=111, motor1_id=1, motor2_id=2, motor3_id=3, motor4_id=4)
 
-    rate = rospy.Rate(20)
+    rate = rospy.Rate(cdpr.control_rate)
     exceed_cnt = 0
     time.sleep(1)
     while not rospy.is_shutdown():
 
         if time.time() - cdpr.last_velo_cb_time > cdpr.max_interval:  # 规定时间间隔内没接收到速度指令则停机
-            cdpr.motor1.set_run_mode(1)     # 切换为位置模式，锁定电机位置
-            cdpr.motor2.set_run_mode(1)
-            cdpr.motor3.set_run_mode(1)
-            cdpr.motor4.set_run_mode(1)
+            cdpr.motor1.set_position(cdpr.motor1.get_position())     # 锁定电机在当前位置
+            cdpr.motor2.set_run_mode(cdpr.motor2.get_position())
+            cdpr.motor3.set_run_mode(cdpr.motor3.get_position())
+            cdpr.motor4.set_run_mode(cdpr.motor4.get_position())
             print('No signal')
 
         if cdpr.exceed_cnt >= cdpr.exceed_tol:  # 连续接收最大速度指令，则判断为发生错误，停机
-            cdpr.motor1.set_run_mode(1)  # 切换为位置模式，锁定电机位置
-            cdpr.motor2.set_run_mode(1)
-            cdpr.motor3.set_run_mode(1)
-            cdpr.motor4.set_run_mode(1)
+            cdpr.motor1.set_run_mode(cdpr.motor1.get_position())     # 锁定电机在当前位置
+            cdpr.motor2.set_run_mode(cdpr.motor2.get_position())
+            cdpr.motor3.set_run_mode(cdpr.motor3.get_position())
+            cdpr.motor4.set_run_mode(cdpr.motor4.get_position())
             print('Over speed')
 
-        cdpr.get_and_pub_motor_pos()
+        # cdpr.get_and_pub_motor_pos()
         rate.sleep()
 
-    cdpr.motor1.stop()      # 电机停机后失去输出转矩，由于没有物理刹车，末端执行器将下坠
+    cdpr.motor1.stop()      # 关闭程序后电机停机，将失去输出转矩，由于没有物理锁止，末端执行器将下坠
     cdpr.motor2.stop()
     cdpr.motor3.stop()
     cdpr.motor4.stop()
