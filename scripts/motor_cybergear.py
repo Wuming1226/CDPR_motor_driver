@@ -291,6 +291,7 @@ if __name__ == '__main__':
     motor.set_position(0)
     motor.enable()
 
+    time.sleep(2)
     pos = 0
 
     start_time = time.time()
@@ -301,14 +302,17 @@ if __name__ == '__main__':
 
         time.sleep(0.01)
 
-    time.sleep(3)
+    time.sleep(2)
         
     start_time = time.time()
     while time.time() - start_time < 2:
         pos = 0.02 + pos
-        status = motor.set_velocity(pos)
+        status = motor.set_position(pos)
+        print(motor.get_position())
 
         time.sleep(0.01)
 
+    time.sleep(1)
+    print(motor.get_position())
     motor.stop()
 

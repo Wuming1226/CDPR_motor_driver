@@ -87,17 +87,17 @@ class CDPR:
             self.exceed_cnt = 0 if self.exceed_cnt < 0 else self.exceed_cnt
             
         if self.exceed_cnt > self.exceed_tol:
-            cdpr.motor1.set_run_mode(cdpr.motor1.get_position())  # 锁定电机在当前位置
-            cdpr.motor2.set_run_mode(cdpr.motor2.get_position())
-            cdpr.motor3.set_run_mode(cdpr.motor3.get_position())
-            cdpr.motor4.set_run_mode(cdpr.motor4.get_position())
+            cdpr.motor1.set_position(cdpr.motor1.get_position())  # 锁定电机在当前位置
+            cdpr.motor2.set_position(cdpr.motor2.get_position())
+            cdpr.motor3.set_position(cdpr.motor3.get_position())
+            cdpr.motor4.set_position(cdpr.motor4.get_position())
         else:
             # 根据速度指令更新参考位置
             self.pos_ref = self.pos_ref + msg.data / self.control_rate
             status1 = self.motor1.set_position(self.pos_ref[0])
             status2 = self.motor2.set_position(self.pos_ref[1])
-            status3 = self.motor3.set_velocity(self.pos_ref[2])
-            status4 = self.motor4.set_velocity(self.pos_ref[3])
+            status3 = self.motor3.set_position(self.pos_ref[2])
+            status4 = self.motor4.set_position(self.pos_ref[3])
 
         # positions = np.array([status1['position'], status2['position'], status3["position"], status4['position']])
         # self.calculate_motor_position(positions)
@@ -138,16 +138,16 @@ if __name__ == "__main__":
 
         if time.time() - cdpr.last_velo_cb_time > cdpr.max_interval:  # 规定时间间隔内没接收到速度指令则停机
             cdpr.motor1.set_position(cdpr.motor1.get_position())     # 锁定电机在当前位置
-            cdpr.motor2.set_run_mode(cdpr.motor2.get_position())
-            cdpr.motor3.set_run_mode(cdpr.motor3.get_position())
-            cdpr.motor4.set_run_mode(cdpr.motor4.get_position())
+            cdpr.motor2.set_position(cdpr.motor2.get_position())
+            cdpr.motor3.set_position(cdpr.motor3.get_position())
+            cdpr.motor4.set_position(cdpr.motor4.get_position())
             print('No signal')
 
         if cdpr.exceed_cnt >= cdpr.exceed_tol:  # 连续接收最大速度指令，则判断为发生错误，停机
-            cdpr.motor1.set_run_mode(cdpr.motor1.get_position())     # 锁定电机在当前位置
-            cdpr.motor2.set_run_mode(cdpr.motor2.get_position())
-            cdpr.motor3.set_run_mode(cdpr.motor3.get_position())
-            cdpr.motor4.set_run_mode(cdpr.motor4.get_position())
+            cdpr.motor1.set_position(cdpr.motor1.get_position())     # 锁定电机在当前位置
+            cdpr.motor2.set_position(cdpr.motor2.get_position())
+            cdpr.motor3.set_position(cdpr.motor3.get_position())
+            cdpr.motor4.set_position(cdpr.motor4.get_position())
             print('Over speed')
 
         # cdpr.get_and_pub_motor_pos()
